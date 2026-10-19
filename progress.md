@@ -9,7 +9,7 @@ What each commit to this repo accomplishes, newest first. The plan behind these 
 | Stage | Status |
 |---|---|
 | Design (architecture doc + diagram) | ✅ Done, pushed |
-| v0.1 step 1: generator core (`pm-core`) with tests | 🟡 Done locally, not yet committed |
+| v0.1 step 1: generator core (`pm-core`) with tests | ✅ Done, pushed (`afe8f08`) |
 | v0.1 step 2: Tauri app shell | ⏳ Next |
 | v0.1 step 3: React generator screen | ⏳ Planned |
 | v0.1 step 4: CI on macOS/Windows/Linux + README screenshot | ⏳ Planned |
@@ -19,13 +19,23 @@ What each commit to this repo accomplishes, newest first. The plan behind these 
 
 ## Commit log
 
-### Add pm-core password generator with tests
+### Fix README rule count and test commands; update progress log
 - **Commit:** not yet committed · **Pushed:** no
-- **Suggested commit message:** `Add pm-core password generator with unit and property tests`
+- **Suggested commit message:** `Fix README rule count and test commands; update progress log`
+
+**What it accomplishes:** corrects documentation pushed in `afe8f08`. No code changes.
+
+- `README.md`: says 15 rule options, not 16 (R16 needs the vault). Removes the comment after `cargo test`, which broke the command when pasted into zsh, the macOS default shell. Adds a sentence explaining each test command and a link to this file.
+- `progress.md`: fills in the `afe8f08` hash, corrects that entry's rule count, and adds this entry.
+
+---
+
+### afe8f08 · Add pm-core password generator with unit and property tests
+- **Commit:** `afe8f08` · 2026-10-19 · **Pushed:** yes (`origin/main`)
 
 **What it accomplishes:** the first working code. A Rust library, `crates/pm-core`, that generates passwords from a rule set. No UI and no storage yet.
 
-- **All 16 rule options** from the architecture doc (R1–R16, Section 4.1): length limits, required uppercase, lowercase and symbols, an **exact** digit count, an allowed-symbol set, no spaces, must start with a letter, look-alike exclusion, repeat limit, no sequences (`abc`, `321`, `qwe`), no username, not a common password, ASCII only. R16 (reuse across vault entries) waits for the vault.
+- **15 of the 16 rule options** from the architecture doc (R1–R15, Section 4.1): length limits, required uppercase, lowercase and symbols, an **exact** digit count, an allowed-symbol set, no spaces, must start with a letter, look-alike exclusion, repeat limit, no sequences (`abc`, `321`, `qwe`), no username, not a common password, ASCII only. R16 (reuse across vault entries) waits for the vault.
 - **Optional memorable phrase** in two modes: as-is, or transformed (random case, plus `a→@`, `s→$`, `i→!` when allowed). A phrase that breaks a rule is rejected with a message saying what to change.
 - **Secure randomness:** characters come only from the OS random number generator. The code only accepts a cryptographically secure generator (`CryptoRng`), so a weak one can't be passed in by mistake.
 - **Rejection sampling:** a candidate that breaks a rule is thrown away and rebuilt, never patched, so every valid password is equally likely.
@@ -35,7 +45,7 @@ What each commit to this repo accomplishes, newest first. The plan behind these 
 
 **Also in this commit:**
 - `docs/architecture.md`: records the decisions from 2026-10-19 (React frontend; symbol-only swaps; phrases with digits rejected; rule-breaking phrases rejected rather than edited; v0.1 scope). Adds open questions 17 (should the repeat, sequence and look-alike rules apply to the phrase?) and 18 (license).
-- `README.md`: v0.1 section, and test commands that work when pasted into zsh.
+- `README.md`: v0.1 section with the test commands. (As pushed, it said 16 rule options and had a comment after `cargo test` that breaks in zsh; both fixed in the next commit.)
 - `progress.md`: this file.
 
 **Key files:**

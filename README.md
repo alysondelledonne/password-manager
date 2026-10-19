@@ -8,7 +8,7 @@ A desktop password generator and encrypted password manager for macOS, Windows, 
 
 The rules engine lives in [`crates/pm-core`](crates/pm-core), a plain Rust library with no UI code:
 
-- 16 rule options drawn from common website requirements, including an exact digit count
+- 15 rule options drawn from common website requirements, including an exact digit count (a 16th, no reuse across saved passwords, arrives with the vault)
 - An optional memorable phrase, used as typed or transformed (random case and symbol swaps)
 - Randomness only from the operating system's secure generator, with candidates that break a rule thrown away and rebuilt rather than patched
 - A strength estimate that gives the phrase no credit
@@ -20,10 +20,12 @@ The rules engine lives in [`crates/pm-core`](crates/pm-core), a plain Rust libra
 Requires [Rust](https://rustup.rs) 1.90 or newer.
 
 ```sh
-cargo test                 # unit tests + property tests
+cargo test
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ```
+
+`cargo test` runs the unit tests and property tests, `clippy` is the linter, and `fmt --check` confirms the formatting.
 
 The property tests (`crates/pm-core/tests/properties.rs`) generate passwords for hundreds of random rule sets and check that every password follows every enabled rule.
 
@@ -39,3 +41,4 @@ The property tests (`crates/pm-core/tests/properties.rs`) generate passwords for
 
 - [Architecture and design](docs/architecture.md): components, security design, generator algorithm, sync and merge rules, and open questions.
 - Architecture diagram: [PNG](docs/architecture.png) · [SVG](docs/architecture.svg) · [Mermaid source](docs/architecture.mmd)
+- [Progress](progress.md): what each commit accomplishes, and what's next.
