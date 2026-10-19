@@ -2,7 +2,30 @@
 
 A desktop password generator and encrypted password manager for macOS, Windows, and Linux, built with Rust and Tauri 2 (web UI in TypeScript).
 
-> **Status:** Design phase. No application code yet. Not ready to store real passwords.
+> **Status:** v0.1 in progress. The generator core (`crates/pm-core`) is built and tested; the desktop UI is next. Nothing is stored yet.
+
+## v0.1: password generator
+
+The rules engine lives in [`crates/pm-core`](crates/pm-core), a plain Rust library with no UI code:
+
+- 16 rule options drawn from common website requirements, including an exact digit count
+- An optional memorable phrase, used as typed or transformed (random case and symbol swaps)
+- Randomness only from the operating system's secure generator, with candidates that break a rule thrown away and rebuilt rather than patched
+- A strength estimate that gives the phrase no credit
+- Secrets wiped from memory when dropped (`zeroize`), and hidden from debug output
+- No `unsafe` code
+
+### Running the tests
+
+Requires [Rust](https://rustup.rs) 1.90 or newer.
+
+```sh
+cargo test                 # unit tests + property tests
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
+```
+
+The property tests (`crates/pm-core/tests/properties.rs`) generate passwords for hundreds of random rule sets and check that every password follows every enabled rule.
 
 ## Planned features
 

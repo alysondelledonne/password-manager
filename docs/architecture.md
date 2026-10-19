@@ -24,6 +24,9 @@ This document describes what the app does, how it is built, and how it keeps pas
 | Phrase use | ✅ User chooses per password: **Transformed** (phrase mixed in with substitutions and random characters) or **As-is** (phrase verbatim plus random characters) |
 | Generator rule options | ✅ Length min/max, uppercase/lowercase, special characters, exclude look-alikes and repeats, plus the most common site requirements from research (Section 4.1) |
 | Sync conflicts | ✅ Merge per entry, newest edit wins |
+| Frontend framework | ✅ React (TypeScript) |
+| Phrase rules | ✅ Transformed mode swaps letters for symbols only, never digits. Phrases containing digits are rejected. A phrase that breaks any rule is rejected with a message, never edited silently (Section 4.4). |
+| First release (v0.1) | ✅ Generator only: rule options, digit count, phrase, Generate/Regenerate, password shown on screen. Vault and accounts come later (Section 11). |
 
 ### 1.1 Why Rust instead of Python
 
@@ -129,26 +132,32 @@ password-manager/
 ├── Cargo.toml                    # workspace: lists the crates below
 ├── crates/
 │   ├── pm-core/                  # all app logic, no UI, no Tauri
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── generator/
-│   │       │   ├── policy.rs     # PasswordPolicy struct + validation
-│   │       │   ├── charsets.rs   # character pools, look-alike lists
-│   │       │   ├── engine.rs     # generate(), regenerate()
-│   │       │   ├── phrase.rs     # transformed / as-is phrase handling
-│   │       │   └── strength.rs   # entropy estimate + blocklist check
-│   │       ├── crypto.rs         # KDF, AEAD, key wrapping
-│   │       ├── vault.rs          # Vault, Entry models + CRUD
-│   │       ├── vault_format.rs   # file serialization, versioning
-│   │       ├── sync.rs           # watcher, atomic write, merge
-│   │       └── profiles.rs
+│   │   ├── data/
+│   │   │   └── common-passwords.txt  # bundled blocklist (placeholder in v0.1)
+│   │   ├── src/
+│   │   │   ├── lib.rs
+│   │   │   ├── generator/        # ✅ built in v0.1
+│   │   │   │   ├── policy.rs     # PasswordPolicy struct + validation
+│   │   │   │   ├── charsets.rs   # character pools, look-alike lists
+│   │   │   │   ├── engine.rs     # generate() (regenerate = call again)
+│   │   │   │   ├── phrase.rs     # transformed / as-is phrase handling
+│   │   │   │   ├── rules.rs      # repeat, sequence, username, common-password checks
+│   │   │   │   ├── error.rs      # user-facing error messages
+│   │   │   │   └── strength.rs   # entropy estimate + rating
+│   │   │   ├── crypto.rs         # later: KDF, AEAD, key wrapping
+│   │   │   ├── vault.rs          # later: Vault, Entry models + CRUD
+│   │   │   ├── vault_format.rs   # later: file serialization, versioning
+│   │   │   ├── sync.rs           # later: watcher, atomic write, merge
+│   │   │   └── profiles.rs       # later
+│   │   └── tests/
+│   │       └── properties.rs     # property tests: every password follows every rule
 │   ├── pm-platform/              # biometric + OS secure storage
 │   │   └── src/
 │   │       ├── lib.rs            # BiometricUnlock trait
 │   │       ├── macos.rs
 │   │       ├── windows.rs
 │   │       └── linux.rs
-│   └── pm-cli/                   # phase 1 command-line generator
+│   └── pm-cli/                   # optional, later: command-line generator
 ├── src-tauri/                    # the desktop app shell
 │   ├── src/
 │   │   ├── main.rs
@@ -159,7 +168,6 @@ password-manager/
 ├── ui/                           # frontend (TypeScript)
 │   ├── package.json
 │   └── src/
-├── data/blocklist.txt            # common/breached passwords list
 └── tests/                        # cross-crate integration tests
 ```
 
@@ -276,8 +284,8 @@ generate(policy, phrase_opts = None, username = None):
   5. CHECK every rule (R8–R16). If any fails, discard and go back to step 3.
      Cap at 1,000 attempts, then report "these rules are too strict to satisfy".
 
-  6. SCORE strength (4.5). If below the minimum, lengthen the random part
-     (up to max_length) and retry, or warn the user if max_length blocks it.
+  6. SCORE strength (4.5) and return the rating with the password.
+     v0.1 warns below 80 bits but never changes the length the user chose.
 
   7. RETURN password + strength estimate. Nothing is written to disk
      until the user presses Save.
@@ -293,17 +301,19 @@ The security rule behind both modes: **assume an attacker knows or can guess the
 
 | | **As-is** | **Transformed** |
 |---|---|---|
-| Example (phrase `blue heron`) | `Kp7!blueheron#4xQ2` | `Kp7!Blu3H#r0n4xQ` |
-| What happens | Phrase is used verbatim (spaces removed or replaced if R8 is on), placed at a random position | Each letter gets random case; some letters swap to look-alike symbols (`e→3`, `a→@`, `o→0`, `s→$`, `i→!`) using CSPRNG choices; result placed at a random position |
+| Example (phrase `blueheron`) | `Kp7!blueheron#4xQ2` | `Kp7!bLuEHeRon#4xQ` |
+| What happens | Phrase is used exactly as typed, placed at a random position | Each letter gets random case; `a`, `s` and `i` may swap to `@`, `$` and `!` (only if that symbol is allowed) using CSPRNG choices; result placed at a random position |
 | Easier to remember | Yes | Somewhat |
 | Strength credit for the phrase | 0 bits | 0 bits (cracking tools already try these swaps) |
 | UI warning | Shown: "Anyone who knows this phrase is closer to your password. Strength comes only from the random characters." | Same warning, softer |
 
-**Rule conflicts the phrase can cause** (each needs a defined behavior — see Q4–Q6):
-- Swaps like `e→3` add **digits**, which affects your exact digit count (R5).
-- The phrase itself may contain digits (`summer2019`).
-- The phrase may contain spaces (R8), non-ASCII letters (R15), or symbols not in the allowed set (R7).
-- The phrase may contain the username (R13) or be longer than `max_length`.
+**How phrase conflicts are handled** ✅ (decided 2026-10-19, Q4–Q6):
+- Transformed mode never swaps letters for digits, so the exact digit count (R5) is never affected.
+- A phrase containing digits (`summer2019`) is rejected.
+- A phrase that breaks any other rule is rejected with a message saying what to change: spaces (R8), non-ASCII letters (R15), symbols outside the allowed set (R7), the username (R13), or a phrase too long for the chosen length.
+- The phrase counts toward length only. The random characters meet every minimum (uppercase, lowercase, digits, symbols) on their own.
+
+**Consequence to be aware of:** the repeat (R11), sequence (R12) and look-alike (R10) rules apply to the phrase too, because they apply to the whole password. With R12 on (the default), everyday words containing a run are rejected: `first` (`rst`), `upon` (`pon`), `street` (`tre`, a keyboard run). With R10 on, any phrase containing `l`, `o`, `O`, `I`, `S` or `Z` is rejected. See Q17.
 
 ### 4.5 Strength estimate
 
@@ -534,7 +544,7 @@ sequenceDiagram
 |---|---|
 | Language | Rust (stable, edition 2024) for the core; TypeScript for the UI |
 | App shell | Tauri 2 (uses WebView2 on Windows, WKWebView on macOS, WebKitGTK on Linux) |
-| Frontend framework | To decide (Q15). Proposed: Svelte with Vite, for a small dependency tree |
+| Frontend framework | ✅ React with Vite (TypeScript) |
 | Crypto | `argon2`, `chacha20poly1305` (RustCrypto) |
 | Randomness | `rand` with `OsRng` / `getrandom` |
 | Secret handling | `zeroize`, `secrecy` |
@@ -569,9 +579,9 @@ sequenceDiagram
 
 ## 11. Build phases 🟡
 
-1. **Generator (CLI first):** `pm-core` generator + `pm-cli`. Rules, digits, phrase modes, strength, tests. No UI, no storage.
+1. **v0.1, generator only ✅:** the `pm-core` generator (rules, exact digits, phrase modes, strength) with unit and property tests, then a Tauri app with one generator screen: options, Generate/Regenerate, password on screen, copy. Strict CSP; the UI can call only `generate`. No storage. CI on macOS, Windows and Linux.
 2. **Crypto + local vault:** format, Argon2id, encryption, CRUD, tests.
-3. **Tauri shell + UI:** IPC commands, capabilities, CSP, isolation pattern; profile picker, unlock, generator panel, vault list, entry editor, auto-lock, clipboard.
+3. **Full UI:** isolation pattern; profile picker, unlock, vault list, entry editor, auto-lock, clipboard handled in Rust.
 4. **Profiles.**
 5. **Sync + merge:** folder sync, watcher, conflict copies.
 6. **Biometrics:** prototype Windows Hello early (riskiest), then macOS, then packaging and signing.
@@ -600,9 +610,9 @@ sequenceDiagram
 1. **Proposed defaults.** Do you accept the 🟡 defaults: rule defaults in 4.1, 80-bit minimum strength, 5-min auto-lock, 30-s clipboard clear, 30-s reveal timeout, 15-char master password minimum, 14-day master password re-entry for biometrics, 90-day tombstone purge?
 2. **Profile names before unlock.** Show profile names on the picker (convenient) or require typing the profile name (more private on shared computers)?
 3. **Biometrics on a shared OS login.** Warn only, or block biometrics for profiles on an OS account that other people use?
-4. **Phrase swaps and the digit count.** Transformed mode can turn `e` into `3`. Should those digits (a) count toward the exact digit total, or (b) should digit-producing swaps be turned off so only symbol swaps are used?
-5. **Digits inside the phrase** (e.g. `summer2019`). Count them toward the exact digit total, or reject phrases with digits?
-6. **Phrase vs. rules.** If the phrase has spaces or characters a rule forbids, should the app (a) remove or replace them automatically and show the result, or (b) stop and ask the user to change the phrase?
+4. ~~Phrase swaps and the digit count.~~ ✅ Answered: symbol swaps only.
+5. ~~Digits inside the phrase.~~ ✅ Answered: reject phrases with digits.
+6. ~~Phrase vs. rules.~~ ✅ Answered: stop and ask the user to change the phrase.
 7. **Linux sync.** iCloud and Google Drive have no official Linux client. Is "Dropbox on Linux, or a third-party Google Drive client" acceptable, or do you need direct API sync on Linux (adds OAuth and a lot of work)?
 8. **Online breach check.** Check generated and master passwords against Have I Been Pwned's range API? It sends only the first 5 characters of a hash, but it is a network call. Yes/no?
 9. **No password history.** Without history, saving a regenerated password over an entry erases the old one. If the site change then fails, the old password is gone. Add a single "previous password" field kept for 30 days, or keep it strictly without history?
@@ -611,8 +621,10 @@ sequenceDiagram
 12. **Store the phrase?** Should the memorable phrase be saved in the entry (encrypted) so the user can see it later, or never saved?
 13. **Import/export.** Import from other managers (CSV from Chrome, 1Password, Bitwarden) or encrypted export? Not in scope now.
 14. **Who will use it?** Just you and family, or published for others? That changes the review, signing, and support bar.
-15. **Frontend framework.** Svelte (proposed: compiles away, small dependency tree), React (most widely known, larger tree), or plain TypeScript with no framework (fewest dependencies, more hand-written UI code)?
+15. ~~Frontend framework.~~ ✅ Answered: React.
 16. **Crypto library.** Pure-Rust RustCrypto crates (proposed: no C toolchain, simpler cross-platform builds) or libsodium through a Rust binding (the same well-known C library v1 used through PyNaCl)?
+17. **Should the repeat, sequence and look-alike rules apply to the phrase?** Currently yes (Section 4.4), which rejects common words like `first` and `street` when R12 is on. Alternative: apply them only to the random characters, which accepts more phrases but means the finished password can contain a run from the phrase.
+18. **License.** The repo has no license yet. For a public portfolio project, MIT or Apache-2.0 are the usual choices; with no license, others may view the code but have no right to reuse it.
 
 ---
 
