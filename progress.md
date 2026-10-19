@@ -10,8 +10,8 @@ What each commit to this repo accomplishes, newest first. The plan behind these 
 |---|---|
 | Design (architecture doc + diagram) | ✅ Done, pushed |
 | v0.1 step 1: generator core (`pm-core`) with tests | ✅ Done, pushed (`afe8f08`) |
-| v0.1 step 2: memorable password website (`passphrase` + `pm-wasm` + React page) | 🟡 Page pushed (`073c567`); Rust side and docs not yet committed |
-| v0.1 step 3: CI on macOS/Windows/Linux, GitHub Pages, README screenshot | ⏳ Next |
+| v0.1 step 2: memorable password website (`passphrase` + `pm-wasm` + React page) | ✅ Done, pushed (`073c567`, `78c2a1c`) |
+| v0.1 step 3: CI on macOS/Windows/Linux, GitHub Pages, README screenshot | 🟡 CI and Pages not yet committed; screenshot after that |
 | Desktop app (Tauri), then vault, encryption, profiles, sync, biometrics | ⏳ Planned (architecture doc, Section 11) |
 
 On 2026-10-19 v0.1 changed from a desktop app to a website, and then from random-character to memorable word-based passwords (architecture doc, Sections 1, 3.4 and 4.6).
@@ -20,10 +20,26 @@ On 2026-10-19 v0.1 changed from a desktop app to a website, and then from random
 
 ## Commit log
 
-### Memorable password generator website (Rust to WebAssembly + React), in two commits
+### Add CI and GitHub Pages deployment
+- **Commit:** not yet committed · **Pushed:** no
+- **Suggested commit message:** `Add CI and GitHub Pages deployment`
+
+**What it accomplishes:** every push and pull request is tested automatically, and the website is published at https://alysondelledonne.github.io/password-manager/. A pull request missing files, like #1, now shows a red X before it's merged.
+
+- **`.github/workflows/ci.yml`** (new): on every push to `main` and every pull request.
+  - **Rust**, on macOS, Windows and Linux: `cargo fmt --check`, `clippy -D warnings`, `cargo test`.
+  - **Website:** page tests, then a full production build: Rust to WebAssembly, type check, and Vite.
+  - The `wasm-bindgen` CLI is pinned to 0.2.129 to match `Cargo.lock`.
+- **`.github/workflows/pages.yml`** (new): on every push to `main`, runs the Rust and page tests, builds the site, and publishes it to GitHub Pages. A failing test stops the publish. Needs Settings → Pages → Source: "GitHub Actions" (done once, by hand).
+- **`README.md`:** CI badge, live link, and a "What this demonstrates" section. The screenshot comes in a follow-up commit.
+
+**How it was verified:** both workflows pass `actionlint`, with action versions checked against their repositories. The website job's steps were run in a clean copy of the repo, with fresh `npm ci` and no generated files; all 25 page tests pass without the WebAssembly module. The first real run is on GitHub after this is pushed.
+
+---
+
+### 073c567 + 78c2a1c · Memorable password generator website (Rust to WebAssembly + React)
 - **`073c567`** · 2026-10-19 · **Pushed:** yes, merged in pull request #1. The page itself (`web/` only).
-- **Not yet committed:** everything else below: the Rust word generator, the WebAssembly layer, the word list, the out-of-date-module fix (`web/src/outcome.ts`) and the docs. `main` can't build the website until this is pushed too.
-- **Suggested commit message:** `Add Rust word generator and WebAssembly layer for the website`
+- **`78c2a1c`** · 2026-10-19 · **Pushed:** yes, merged in pull request #2. Everything else below: the Rust word generator, the WebAssembly layer, the word list, the out-of-date-module fix (`web/src/outcome.ts`) and the docs. It reuses the first commit's message. Between the two merges, `main` couldn't build the website.
 
 **What it accomplishes:** the first version you can use. A web page that makes memorable passwords like `Otter7Wagon!Maple2` in the browser, using Rust compiled to WebAssembly. Nothing is sent to a server and nothing is stored.
 
