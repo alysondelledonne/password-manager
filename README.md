@@ -1,8 +1,19 @@
 # password-manager
 
+[![CI](https://github.com/alysondelledonne/password-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/alysondelledonne/password-manager/actions/workflows/ci.yml)
+
+**Try it: https://alysondelledonne.github.io/password-manager/**
+
 A password generator and, later, an encrypted password manager, built in Rust. v0.1 is a website: the Rust generator is compiled to WebAssembly and runs in your browser, so passwords never leave the page. The password manager will be a desktop app for macOS, Windows and Linux (Tauri 2).
 
-> **Status:** v0.1 in progress. The generator core and the website run locally; CI and public hosting are next. Nothing is stored.
+> **Status:** v0.1 is live. Nothing is stored; passwords are made in your browser.
+
+## What this demonstrates
+
+- **Rust in the browser:** the generator is a Rust library compiled to WebAssembly (`wasm-bindgen`). Randomness comes from the browser's secure generator, and no password ever reaches a server.
+- **Correctness by testing:** property tests (`proptest`) check every rule over thousands of random settings, and a word-list test caught a hyphenated word that would have slipped a special character into passwords set to have none. Sampling is exact: the engine counts the passwords that fit and picks uniformly, instead of guessing and retrying.
+- **Security habits:** no `unsafe` code (forbidden by a workspace lint), secrets wiped from memory (`zeroize`) and hidden from debug output, a strict Content Security Policy, and honest ratings.
+- **CI/CD:** GitHub Actions run formatting, lints and tests on macOS, Windows and Linux, then build and publish the site to GitHub Pages.
 
 ## v0.1: memorable password generator website
 
