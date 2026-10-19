@@ -1,19 +1,31 @@
 # password-manager
 
-A desktop password generator and encrypted password manager for macOS, Windows, and Linux, built with Rust and Tauri 2 (web UI in TypeScript).
+A password generator and, later, an encrypted password manager, built in Rust. v0.1 is a website: the Rust generator is compiled to WebAssembly and runs in your browser, so passwords never leave the page. The password manager will be a desktop app for macOS, Windows and Linux (Tauri 2).
 
-> **Status:** v0.1 in progress. The generator core (`crates/pm-core`) is built and tested; the desktop UI is next. Nothing is stored yet.
+> **Status:** v0.1 in progress. The generator core and the website run locally; CI and public hosting are next. Nothing is stored.
 
-## v0.1: password generator
+## v0.1: memorable password generator website
 
-The rules engine lives in [`crates/pm-core`](crates/pm-core), a plain Rust library with no UI code:
+Makes passwords you can remember, like `Otter7Wagon!Maple2`: 2 or 3 words joined by digits and special characters.
 
-- 15 rule options drawn from common website requirements, including an exact digit count (a 16th, no reuse across saved passwords, arrives with the vault)
-- An optional memorable phrase, used as typed or transformed (random case and symbol swaps)
-- Randomness only from the operating system's secure generator, with candidates that break a rule thrown away and rebuilt rather than patched
-- A strength estimate that gives the phrase no credit
-- Secrets wiped from memory when dropped (`zeroize`), and hidden from debug output
-- No `unsafe` code
+- **Words:** enter a few of your own (2 or 3 are picked each time), or use random words from EFF's short word list.
+- **Options:** length range (3 words if they fit, otherwise 2), exactly how many digits, uppercase and lowercase on or off, and whether special characters are required, picked from a set of bubbles. Spaces are never used.
+- **Regenerate** gives a new password with the same settings. **Copy** clears the clipboard after 30 seconds, but only if it still holds the password.
+- **Two star ratings**, because the goal is a different password for every site that you can remember without a password manager. **Easy to remember** counts how many separate things you'd have to recall. **Hard to guess** measures randomness. A one-line verdict weighs the two, and a guide below the generator explains both in plain language and says which accounts each level suits.
+
+How it fits together:
+
+- [`crates/pm-core`](crates/pm-core): the rules, a plain Rust library with no UI code
+- [`crates/pm-wasm`](crates/pm-wasm): compiles `pm-core` to WebAssembly for the page
+- [`web/`](web): the page, in React + TypeScript
+
+What's in `pm-core`:
+
+- **`passphrase`** (used by the website): picks words, separators and digits uniformly among the passwords that fit the length range, and computes the strength exactly. It counts the fitting combinations rather than guessing and retrying.
+- **`generator`** (random characters, kept for the desktop app): 15 rule options drawn from common website requirements, including an exact digit count. A 16th, no reuse across saved passwords, arrives with the vault.
+- Randomness only from the operating system's secure generator; in the browser that's `crypto.getRandomValues`.
+- Secrets wiped from memory when dropped (`zeroize`), and hidden from debug output.
+- No `unsafe` code.
 
 ### Running the tests
 
@@ -27,7 +39,41 @@ cargo fmt --check
 
 `cargo test` runs the unit tests and property tests, `clippy` is the linter, and `fmt --check` confirms the formatting.
 
-The property tests (`crates/pm-core/tests/properties.rs`) generate passwords for hundreds of random rule sets and check that every password follows every enabled rule.
+### Running the website locally
+
+Also requires [Node.js](https://nodejs.org) 20 or newer. One-time setup:
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.129 --locked
+cd web
+npm install
+```
+
+The `wasm-bindgen-cli` version must match the `wasm-bindgen` version in `Cargo.lock`.
+
+Then, from `web/`:
+
+```sh
+npm run dev
+```
+
+and open the address it prints (usually http://localhost:5173). `npm run dev` first builds the Rust generator to WebAssembly, then starts the page.
+
+Page changes reload by themselves, but **Rust changes don't**: after changing anything under `crates/`, stop the server (Ctrl+C) and run `npm run dev` again. If you forget, the page says the generator module is out of date.
+
+Other commands, from `web/`:
+
+```sh
+npm test
+npm run typecheck
+npm run build
+npm run preview
+```
+
+`npm test` runs the page's tests, `typecheck` builds the WebAssembly bindings and checks the TypeScript, `build` creates the production site in `web/dist/` (with the Content Security Policy), and `preview` serves that build locally.
+
+The property tests (`crates/pm-core/tests/properties.rs` and `passphrase_properties.rs`) generate passwords for hundreds of random settings and check that every password follows every rule. `tests/wordlist.rs` checks the bundled word list is the complete EFF list.
 
 ## Planned features
 
@@ -42,3 +88,7 @@ The property tests (`crates/pm-core/tests/properties.rs`) generate passwords for
 - [Architecture and design](docs/architecture.md): components, security design, generator algorithm, sync and merge rules, and open questions.
 - Architecture diagram: [PNG](docs/architecture.png) · [SVG](docs/architecture.svg) · [Mermaid source](docs/architecture.mmd)
 - [Progress](progress.md): what each commit accomplishes, and what's next.
+
+## Credits
+
+Random words come from the [EFF Short Wordlist 1](https://www.eff.org/dice) by the Electronic Frontier Foundation, used under [CC BY 3.0 US](https://creativecommons.org/licenses/by/3.0/us/). See [`crates/pm-core/data/README.md`](crates/pm-core/data/README.md).
