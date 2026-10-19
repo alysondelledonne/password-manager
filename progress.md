@@ -19,9 +19,16 @@ What each commit to this repo accomplishes, newest first. The plan behind these 
 
 ## Commit log
 
-### Fix README rule count and test commands; update progress log
+### Fix property test generating impossible rule sets
 - **Commit:** not yet committed · **Pushed:** no
-- **Suggested commit message:** `Fix README rule count and test commands; update progress log`
+- **Suggested commit message:** `Fix property test generating impossible rule sets`
+
+**What it accomplishes:** fixes a test bug, not a generator bug. The random rule sets in `crates/pm-core/tests/properties.rs` could require 13 characters (3 uppercase, 3 lowercase, 4 digits, 3 symbols) in a 12-character password. The generator correctly rejected that with `RequiredExceedsLength`, but the test expected every rule set to be valid, so it failed now and then. The test now builds only rule sets that fit (`prop_filter`). Verified with 50 consecutive runs (about 25,000 random rule sets), plus `clippy` and `fmt`.
+
+---
+
+### 1b4778f · Fix README rule count and test commands; update progress log
+- **Commit:** `1b4778f` · 2026-10-19 · **Pushed:** yes (`origin/main`)
 
 **What it accomplishes:** corrects documentation pushed in `afe8f08`. No code changes.
 

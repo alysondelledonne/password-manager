@@ -46,6 +46,12 @@ fn arb_policy() -> impl Strategy<Value = PasswordPolicy> {
                 }
             },
         )
+        // Only rule sets a password can satisfy. Unsatisfiable ones (e.g. 13
+        // required characters in a 12-character password) correctly return
+        // RequiredExceedsLength, which policy.rs unit tests already cover.
+        .prop_filter("required characters must fit in the length", |p| {
+            p.required_chars() <= p.target_length
+        })
 }
 
 fn assert_follows_policy(pw: &str, p: &PasswordPolicy) {
