@@ -10,18 +10,60 @@ What each commit to this repo accomplishes, newest first. The plan behind these 
 |---|---|
 | Design (architecture doc + diagram) | ✅ Done, pushed |
 | v0.1 step 1: generator core (`pm-core`) with tests | ✅ Done, pushed (`afe8f08`) |
-| v0.1 step 2: Tauri app shell | ⏳ Next |
-| v0.1 step 3: React generator screen | ⏳ Planned |
-| v0.1 step 4: CI on macOS/Windows/Linux + README screenshot | ⏳ Planned |
-| Later stages: vault, encryption, profiles, sync, biometrics | ⏳ Planned (architecture doc, Section 11) |
+| v0.1 step 2: memorable password website (`passphrase` + `pm-wasm` + React page) | 🟡 Page pushed (`073c567`); Rust side and docs not yet committed |
+| v0.1 step 3: CI on macOS/Windows/Linux, GitHub Pages, README screenshot | ⏳ Next |
+| Desktop app (Tauri), then vault, encryption, profiles, sync, biometrics | ⏳ Planned (architecture doc, Section 11) |
+
+On 2026-10-19 v0.1 changed from a desktop app to a website, and then from random-character to memorable word-based passwords (architecture doc, Sections 1, 3.4 and 4.6).
 
 ---
 
 ## Commit log
 
-### Fix property test generating impossible rule sets
-- **Commit:** not yet committed · **Pushed:** no
-- **Suggested commit message:** `Fix property test generating impossible rule sets`
+### Memorable password generator website (Rust to WebAssembly + React), in two commits
+- **`073c567`** · 2026-10-19 · **Pushed:** yes, merged in pull request #1. The page itself (`web/` only).
+- **Not yet committed:** everything else below: the Rust word generator, the WebAssembly layer, the word list, the out-of-date-module fix (`web/src/outcome.ts`) and the docs. `main` can't build the website until this is pushed too.
+- **Suggested commit message:** `Add Rust word generator and WebAssembly layer for the website`
+
+**What it accomplishes:** the first version you can use. A web page that makes memorable passwords like `Otter7Wagon!Maple2` in the browser, using Rust compiled to WebAssembly. Nothing is sent to a server and nothing is stored.
+
+- **`crates/pm-core/src/passphrase/`** (new):
+  - **Words:** 2 or 3 of them, from the person's own (2–10 entered, picked at random) or from EFF's short word list. 3 if any 3-word password fits the length range, otherwise 2.
+  - **Separators:** special characters or digits. Digits used as separators count toward the exact digit total, and the rest go at the end. When special characters are required, at least one separator is a selected symbol.
+  - **Capitals:** the first letter of each word, or all caps or all lowercase when only one case is on.
+  - **Spaces:** never. Words with spaces, digits or non-letters are rejected with a message, never edited.
+  - **Picking:** counts the combinations that fit and picks uniformly among them, instead of guessing and retrying.
+  - **Strength:** exact, with the person's own words counting as zero.
+- **`crates/pm-core/data/eff_short_wordlist_1.txt`**: EFF Short Wordlist 1 (1,296 words, CC BY 3.0 US), bundled unchanged and credited in `data/README.md`, the README and the page footer. One word, `yo-yo`, is skipped when loading because its hyphen is a special character; 1,295 are used.
+- **Two star ratings** (`passphrase/rating.rs`), because the purpose is a unique password per site that can be remembered without a password manager:
+  - **Easy to remember:** counts "chunks" to recall. Own word 0.75, random word 1, each separator 1, trailing digits 1 per pair. Up to 4.5 chunks is 5 stars, up to 5.5 is 4, up to 6.5 is 3, up to 8 is 2, and more is 1.
+  - **Hard to guess:** from exact bits. Under 20 is 1 star, 20–35 is 2, 35–45 is 3, 45–60 is 4, and 60 or more is 5.
+  - **Own words:** now get credit for the random choice and order of words, still treating the words themselves as known to an attacker.
+  - **Examples:** defaults are 3 and 3 stars; 2 own words are 5 to remember and 1 to guess; random words with 4 digits are 2 and 4.
+- **`crates/pm-wasm`** (new): passes the page's word options to `pm-core` and returns a password with its word count and strength, or an error with a message and the field to highlight. Randomness is the browser's `crypto.getRandomValues`.
+- **`web/`** (new): Vite + React + TypeScript page in dark grey, lime green, light grey and mustard yellow.
+  - **Words:** "My words" (add with Enter, remove with ×) or "Random words".
+  - **Options:** shortest and longest length, digits stepper, uppercase and lowercase switches, special characters switch with symbol bubbles.
+  - **Regenerate**, and **Copy**, which clears the clipboard after 30 seconds only if it still holds the password.
+  - **Password colors:** words in light grey, digits in mustard, special characters in lime.
+  - **Starting state:** the page opens by asking for words, not with an error.
+  - **Ratings:** the readout shows "Easy to remember" and "Hard to guess" stars and a verdict, e.g. "Good balance: fine to memorize for everyday accounts." Below the generator, "What the ratings mean" explains both scales side by side and highlights the current ones. It adds "One password per site" advice (no reuse, no per-site variations, two-step verification) and tips for balancing the two.
+- **Out-of-date module check:** if the compiled Rust module is older than the page (the dev server only rebuilds it on start), the page says so and how to fix it, instead of showing empty stars. Found when the stars didn't fill in on the Mac.
+- **Security settings:** strict Content Security Policy in the built site (no external requests, no inline scripts or styles, no `eval`; `'wasm-unsafe-eval'` only to run WebAssembly). Fonts are bundled.
+- **Docs:** architecture doc Sections 3.4 (the website) and 4.6 (memorable passwords, including an honest note on strength), plus the decisions table. README and this file updated.
+- The random-character generator (`generator` module) is unchanged and still tested, kept for the desktop app.
+
+**How it was verified:**
+- Rust: unit tests for every rule above. Property tests run 1,024 random settings with both random and own words: every password has the exact digit count, a length in range, at least one selected symbol when required (none when not), 2–3 words from the right source with the right capitals, no repeated own words, and no spaces; every error is explained by the settings. Further tests check that random sampling is uniform, that the combination counting is exact, that both rating scales follow their tables and match each password's actual shape (property-tested), that real-list ratings are right (defaults 3 and 3 stars; 4 digits 2 to remember and 4 to guess), and that the bundled list has all 1,296 unique words with only `yo-yo` skipped. `clippy` and `fmt` are clean.
+- Page: 25 Vitest tests: 3 for the out-of-date module check, 13 for the page (adding and removing words, switching to random words, what each control sends, symbol bubbles, errors under the right field, copy, the 10-word limit, both ratings and the verdict, the guide's highlights), 4 for the verdict wording, and 5 for copy-and-clear. TypeScript type-checks.
+- Browser: the production build was loaded in Chromium at desktop and phone sizes: no console errors, no policy violations, no requests to other sites. Clicking through it exposed a bug in the number boxes, which were corrected on every keystroke (clearing "Longest" and typing 30 gave 128). They now accept typing and are tidied when you leave the field.
+- Real WebAssembly: the module built on the developer's Mac (first version of the page) generated 1,000 correct, all-different passwords when run directly, which confirms the browser random-number setup. The cloud workspace can't build WebAssembly itself, so its browser screenshots used a stand-in module; the redesigned page was confirmed running on the Mac.
+- Real word list: checking the downloaded list found `yo-yo`, whose hyphen would have slipped a special character into passwords with special characters turned off. It's now skipped, with a test.
+
+---
+
+### 450f016 · Fix property test generating impossible rule sets
+- **Commit:** `450f016` · 2026-10-19 · **Pushed:** yes (`origin/main`)
 
 **What it accomplishes:** fixes a test bug, not a generator bug. The random rule sets in `crates/pm-core/tests/properties.rs` could require 13 characters (3 uppercase, 3 lowercase, 4 digits, 3 symbols) in a 12-character password. The generator correctly rejected that with `RequiredExceedsLength`, but the test expected every rule set to be valid, so it failed now and then. The test now builds only rule sets that fit (`prop_filter`). Verified with 50 consecutive runs (about 25,000 random rule sets), plus `clippy` and `fmt`.
 
@@ -87,10 +129,10 @@ What each commit to this repo accomplishes, newest first. The plan behind these 
 
 ---
 
-## Planned commits for v0.1
+## Planned commits
 
 These are the next steps, so each commit stays small enough to review in one sitting.
 
-1. **Tauri app shell:** `src-tauri/` with one IPC command, `generate`, that calls `pm-core`. Strict Content Security Policy, and permissions that let the UI call only that command. Nothing is saved to disk.
-2. **React generator screen:** controls for every rule, the digit count, the phrase and its mode, and a Generate / Regenerate button. Shows the password with its strength rating and a Copy button. Phrase errors appear next to the phrase field.
-3. **CI + screenshot:** GitHub Actions running `cargo test`, `clippy` and `fmt` on macOS, Windows and Linux, plus a screenshot in the README.
+1. **CI + hosting (finishes v0.1):** GitHub Actions running the Rust and page tests on macOS, Windows and Linux; build the site and publish it to GitHub Pages; README screenshot and live link.
+2. **Desktop app shell:** Tauri app reusing `pm-core` and the React page, with copy and clear done in Rust.
+3. **Vault:** encryption and storage (architecture doc, Section 5).

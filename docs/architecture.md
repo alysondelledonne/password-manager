@@ -1,7 +1,7 @@
 # Password Generator & Manager — Architecture
 
-**Status:** Design draft v2 · 2026-10-19 (v1 used Python; v2 switches to Rust + Tauri)
-**Platform:** Desktop app, Rust + Tauri 2 (web UI), macOS / Windows / Linux
+**Status:** Design draft v2 · 2026-10-19 (v1 used Python; v2 switches to Rust + Tauri; v0.1 ships as a website first)
+**Platform:** v0.1: website (Rust compiled to WebAssembly + React). Then: desktop app, Rust + Tauri 2, macOS / Windows / Linux
 
 This document describes what the app does, how it is built, and how it keeps passwords safe. Every design choice is labeled:
 
@@ -14,7 +14,7 @@ This document describes what the app does, how it is built, and how it keeps pas
 
 | Topic | Your answer |
 |---|---|
-| Platform | ✅ Desktop app |
+| Platform | ✅ Website first (v0.1: generator only), then the desktop app (vault and everything else). Decided 2026-10-19. |
 | Stack | ✅ Rust with Tauri 2: Rust core, UI in HTML/CSS/TypeScript rendered by the OS webview |
 | Operating systems | ✅ macOS, Windows, Linux |
 | Storage | ✅ Synced through cloud storage: iCloud Drive, Dropbox, Google Drive |
@@ -26,7 +26,10 @@ This document describes what the app does, how it is built, and how it keeps pas
 | Sync conflicts | ✅ Merge per entry, newest edit wins |
 | Frontend framework | ✅ React (TypeScript) |
 | Phrase rules | ✅ Transformed mode swaps letters for symbols only, never digits. Phrases containing digits are rejected. A phrase that breaks any rule is rejected with a message, never edited silently (Section 4.4). |
-| First release (v0.1) | ✅ Generator only: rule options, digit count, phrase, Generate/Regenerate, password shown on screen. Vault and accounts come later (Section 11). |
+| First release (v0.1) | ✅ A website that generates **memorable** passwords: 2 or 3 words joined by digits and special characters (Section 4.6). Options: length range, exact digits, uppercase and lowercase switches, special characters required with selectable symbols, and the person's own words or random words. Regenerate on request. No spaces, ever. Decided 2026-10-19; replaces the random-character page. The random-character generator (Sections 4.1–4.5) stays in `pm-core`, tested, for the desktop app. Vault and accounts come later (Section 11). |
+| Website colors | ✅ Dark grey, lime green, light grey, mustard yellow |
+| Copy button | ✅ Desktop: copy and automatic clear done in Rust. Website (v0.1): the browser clipboard, cleared after 30 seconds only if it still holds the password (Section 3.4). |
+| License | ✅ None for now (all rights reserved by default). |
 
 ### 1.1 Why Rust instead of Python
 
@@ -190,6 +193,36 @@ In Tauri, the UI is a web page running in the OS webview, and the Rust core is a
 - **Strict Content Security Policy:** no remote scripts, no `eval`, no inline scripts. All UI assets are bundled; the app loads no remote web content.
 - **Small frontend dependency tree,** with a committed lockfile and `npm audit` in CI. Rust dependencies checked with `cargo audit` and `cargo deny`.
 
+### 3.4 v0.1: the website ✅
+
+v0.1 is a static website with the generator only. It reuses `pm-core` unchanged by compiling it to WebAssembly, so generation happens in the visitor's browser and no server ever sees a password.
+
+```mermaid
+flowchart LR
+    subgraph BROWSER["Visitor's browser"]
+        UI["React page (web/)<br/>options · password · copy"]
+        WASM["pm-wasm (WebAssembly)<br/>word options in, password out"]
+        CORE["pm-core<br/>(same crate the desktop app will use)"]
+        RNG["crypto.getRandomValues<br/>(browser CSPRNG)"]
+        UI -->|"generate({ options, phrase })"| WASM --> CORE --> RNG
+    end
+    HOST["Static hosting<br/>(HTML, JS, CSS, .wasm, fonts)"] -->|"page load only"| UI
+```
+
+- **`crates/pm-wasm`:** a thin wrapper around `pm-core`'s word-based generator (Section 4.6). It passes the page's options and words straight to the Rust rules, and returns either a password with its word count and strength, or an error with a plain-English message and the form field to highlight. It never throws.
+- **Randomness:** `pm-core` asks for the OS random number generator; in the browser, getrandom's `wasm_js` backend supplies `crypto.getRandomValues`.
+- **`web/`:** Vite + React + TypeScript. Fonts are bundled, not fetched from a font service.
+- **Content Security Policy** (built pages only): everything from the site itself; no inline scripts or styles, no `eval`, no external requests. `'wasm-unsafe-eval'` is the one addition, needed to run WebAssembly. Asset inlining is turned off so fonts are never `data:` URLs.
+- **Hosting:** any static host. GitHub Pages is planned in step 4 (Section 11).
+
+**What the website can't do that the desktop app will:**
+
+| | Website (v0.1) | Desktop app |
+|---|---|---|
+| Copy + clear | Browser clipboard. After 30 s the page clears it **only if it still holds the password**, so something else copied in the meantime is never erased. Some browsers don't let pages read the clipboard; then nothing is cleared and the page says so. Works only while the tab is open. | Done in Rust, without those limits. |
+| Wiping secrets from memory | `zeroize` runs inside WebAssembly, but the password is also a JavaScript string on the page, which can't be wiped. | Rust memory wiped; only revealed passwords reach the webview (Section 3.3). |
+| Storing passwords | Never. Nothing is saved. | Encrypted vault (Section 5). |
+
 ---
 
 ## 4. Password generator
@@ -313,7 +346,7 @@ The security rule behind both modes: **assume an attacker knows or can guess the
 - A phrase that breaks any other rule is rejected with a message saying what to change: spaces (R8), non-ASCII letters (R15), symbols outside the allowed set (R7), the username (R13), or a phrase too long for the chosen length.
 - The phrase counts toward length only. The random characters meet every minimum (uppercase, lowercase, digits, symbols) on their own.
 
-**Consequence to be aware of:** the repeat (R11), sequence (R12) and look-alike (R10) rules apply to the phrase too, because they apply to the whole password. With R12 on (the default), everyday words containing a run are rejected: `first` (`rst`), `upon` (`pon`), `street` (`tre`, a keyboard run). With R10 on, any phrase containing `l`, `o`, `O`, `I`, `S` or `Z` is rejected. See Q17.
+**Consequence to be aware of (desktop app; on the v0.1 website these rules are off):** the repeat (R11), sequence (R12) and look-alike (R10) rules apply to the phrase too, because they apply to the whole password. With R12 on (the default), everyday words containing a run are rejected: `first` (`rst`), `upon` (`pon`), `street` (`tre`, a keyboard run). With R10 on, any phrase containing `l`, `o`, `O`, `I`, `S` or `Z` is rejected. See Q17.
 
 ### 4.5 Strength estimate
 
@@ -321,6 +354,49 @@ The security rule behind both modes: **assume an attacker knows or can guess the
 - **Proposed minimum 🟡:** 80 bits from the random part. Below 60 bits, block saving; 60–80, warn.
 - **Blocklist check (R14):** reject candidates found in a bundled list of common/breached passwords (offline; see Q8 about online breach checks).
 - Display: a meter plus the number of bits, e.g. "Strong · 104 bits".
+
+---
+
+### 4.6 Memorable word-based passwords (v0.1 website) ✅
+
+Decided 2026-10-19: the website makes passwords people can remember, such as `Otter7Wagon!Maple2`, instead of random characters.
+
+| Rule | Behavior |
+|---|---|
+| Words | 2 or 3 words. **3 if any 3-word password fits the length range, otherwise 2.** |
+| Word source | **My words:** the person enters 2–10 words; 2 or 3 different ones are picked at random each time. **Random words:** from EFF's short word list, chosen independently, so a repeat is possible, as in Diceware. The file has 1,296 words; `yo-yo` is skipped because its hyphen is a special character, leaving 1,295. |
+| Separators | Between words: special characters or digits, chosen at random. |
+| Digits | Exactly the number asked for. Digits used as separators count toward it; any left over go at the end. |
+| Special characters | When required: at least one separator is one of the selected symbols. When off: no special characters at all, so every separator is a digit (at least 1 digit needed). |
+| Capitals | Both cases on: first letter of each word. Uppercase only: all caps. Lowercase only: all lowercase. Both off: an error. |
+| Length | The whole password must be within the shortest and longest lengths. |
+| Spaces | Never. Each word is checked: a word with a space, digit or non-letter is rejected with a message, not edited. Duplicates are ignored. |
+| Common passwords | Always checked (practically never matches). |
+
+**How it picks (no guess-and-retry):** for each word count and each way of splitting the digits between separators and the end, the engine works out the letter budget the words must fit in and **counts** the fitting word combinations. Random words are grouped by length, so counting doesn't list them. It then picks a valid split, a combination and the separators uniformly at random from the OS random number generator.
+
+**Purpose (2026-10-19):** a **different** password for every site that a person can **remember without a password manager**. Being easy to remember and hard to guess pull against each other, so each password gets **two 1–5 star ratings**. A one-line verdict weighs them, and a "What the ratings mean" section below the generator explains them in plain language and highlights the current ones. The thresholds live in Rust (`passphrase/rating.rs`) and the wording in `web/src/ratings.ts`.
+
+**Easy to remember:** counted in "chunks", the separate things a person has to recall. Working memory holds about four comfortably (Cowan, 2001). Your own word = 0.75 (meaningful to you); random word = 1; each special character or digit between words = 1; digits together at the end = 1 per pair (`47` is one number). Stars: up to 4.5 chunks is 5 stars, up to 5.5 is 4, up to 6.5 is 3, up to 8 is 2, and more than 8 is 1. This is rated per generated password, because the mix of digits and symbols varies.
+
+**Hard to guess:** from the exact bits of randomness: log₂ of the fitting word combinations, plus digit-position, digit and symbol choices. It's the lowest over the valid digit splits, so it doesn't jump between regenerations. For the person's own words, only the random **choice and order** of words counts, as if an attacker knew every word they entered. Stars: under 20 bits is 1 star, 20–35 is 2, 35–45 is 3, 45–60 is 4, and 60 or more is 5. These map to the kinds of accounts it's fine to memorize for: throwaway sign-ups, low-stakes, everyday, money or private details, and accounts that unlock other accounts. The risk being rated is a breach followed by fast offline guessing; sites already limit guesses typed at a login page.
+
+Measured with the real word list:
+
+| Settings | Easy to remember | Hard to guess |
+|---|---|---|
+| 2 of your own words, 2 digits | ★★★★★ | ★ (about 11 bits) |
+| 10 of your own words entered, 2 digits | ★★★★ | ★★ (about 21 bits) |
+| Random words, 0 digits | ★★★★ | ★★★ (about 38 bits) |
+| Random words, 2 digits (defaults) | ★★★ | ★★★ (about 42 bits) |
+| Random words, 4 digits | ★★ | ★★★★ (about 49 bits) |
+| Random words, 8 digits | ★ | ★★★★★ (about 62 bits) |
+
+**Verdict line:** "Hard to remember" if Easy to remember is 2 stars or fewer. Otherwise "Good balance: fine to memorize for [accounts]" if Hard to guess is 3 or more. Otherwise "Easy to remember, but only strong enough for [accounts]", with how to fix it.
+
+**Uniqueness:** advice in the guide (decided 2026-10-19): a new password for every site; don't reuse one with a small change per site, because one leak gives the pattern away; turn on two-step verification for email and banking. The page doesn't remember past passwords to check for reuse.
+
+**Word list:** "EFF Short Wordlist 1" from <https://www.eff.org/dice>, © Electronic Frontier Foundation, CC BY 3.0 US. Bundled unchanged in `crates/pm-core/data/`, and credited on the page and in the README.
 
 ---
 
@@ -545,6 +621,8 @@ sequenceDiagram
 | Language | Rust (stable, edition 2024) for the core; TypeScript for the UI |
 | App shell | Tauri 2 (uses WebView2 on Windows, WKWebView on macOS, WebKitGTK on Linux) |
 | Frontend framework | ✅ React with Vite (TypeScript) |
+| WebAssembly (website) | `wasm-bindgen` (CLI version must match the crate: 0.2.129), `serde-wasm-bindgen`, getrandom `wasm_js` |
+| Frontend tests | Vitest + Testing Library (jsdom) |
 | Crypto | `argon2`, `chacha20poly1305` (RustCrypto) |
 | Randomness | `rand` with `OsRng` / `getrandom` |
 | Secret handling | `zeroize`, `secrecy` |
@@ -579,13 +657,17 @@ sequenceDiagram
 
 ## 11. Build phases 🟡
 
-1. **v0.1, generator only ✅:** the `pm-core` generator (rules, exact digits, phrase modes, strength) with unit and property tests, then a Tauri app with one generator screen: options, Generate/Regenerate, password on screen, copy. Strict CSP; the UI can call only `generate`. No storage. CI on macOS, Windows and Linux.
-2. **Crypto + local vault:** format, Argon2id, encryption, CRUD, tests.
-3. **Full UI:** isolation pattern; profile picker, unlock, vault list, entry editor, auto-lock, clipboard handled in Rust.
-4. **Profiles.**
-5. **Sync + merge:** folder sync, watcher, conflict copies.
-6. **Biometrics:** prototype Windows Hello early (riskiest), then macOS, then packaging and signing.
-7. **Hardening and review.**
+1. **v0.1, generator website ✅ (decided 2026-10-19):**
+   1. `pm-core` generator with unit and property tests ✅
+   2. `pm-wasm` + React page in `web/` (Section 3.4) ✅, then switched to memorable word-based passwords (Section 4.6) ✅
+   3. CI on macOS, Windows and Linux; publish to GitHub Pages; README screenshot
+2. **Desktop shell:** Tauri app reusing `pm-core` and the React page; copy and clear in Rust; isolation pattern.
+3. **Crypto + local vault:** format, Argon2id, encryption, CRUD, tests.
+4. **Full UI:** profile picker, unlock, vault list, entry editor, auto-lock; advanced generator rules exposed.
+5. **Profiles.**
+6. **Sync + merge:** folder sync, watcher, conflict copies.
+7. **Biometrics:** prototype Windows Hello early (riskiest), then macOS, then packaging and signing.
+8. **Hardening and review.**
 
 ---
 
@@ -623,8 +705,8 @@ sequenceDiagram
 14. **Who will use it?** Just you and family, or published for others? That changes the review, signing, and support bar.
 15. ~~Frontend framework.~~ ✅ Answered: React.
 16. **Crypto library.** Pure-Rust RustCrypto crates (proposed: no C toolchain, simpler cross-platform builds) or libsodium through a Rust binding (the same well-known C library v1 used through PyNaCl)?
-17. **Should the repeat, sequence and look-alike rules apply to the phrase?** Currently yes (Section 4.4), which rejects common words like `first` and `street` when R12 is on. Alternative: apply them only to the random characters, which accepts more phrases but means the finished password can contain a run from the phrase.
-18. **License.** The repo has no license yet. For a public portfolio project, MIT or Apache-2.0 are the usual choices; with no license, others may view the code but have no right to reuse it.
+17. ~~Should the repeat, sequence and look-alike rules apply to the phrase?~~ ✅ Answered for v0.1: those rules are off on the website, so they don't apply at all. Revisit when the desktop app exposes them.
+18. ~~License.~~ ✅ Answered: none for now. Revisit before inviting others to reuse or contribute.
 
 ---
 
@@ -638,3 +720,4 @@ sequenceDiagram
 - Google Drive has no official Linux client: https://itsfoss.com/use-google-drive-linux/
 - Tauri biometric plugin (Android and iOS only): https://v2.tauri.app/plugin/biometric/
 - Tauri isolation pattern: https://v2.tauri.app/concept/inter-process-communication/isolation
+- EFF dice-generated passphrases and word lists: https://www.eff.org/dice

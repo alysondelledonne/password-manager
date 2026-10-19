@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { STALE_MODULE_MESSAGE, normalizeOutcome } from "./generator";
+import { STALE_MODULE_MESSAGE, normalizeOutcome } from "./outcome";
 
 const ok = { status: "ok", password: "Maple4Otter!Wagon7", wordCount: 3, entropyBits: 42.4, guessStars: 3, memoryStars: 3 };
 
