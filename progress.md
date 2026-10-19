@@ -11,7 +11,7 @@ What each commit to this repo accomplishes, newest first. The plan behind these 
 | Design (architecture doc + diagram) | ✅ Done, pushed |
 | v0.1 step 1: generator core (`pm-core`) with tests | ✅ Done, pushed (`afe8f08`) |
 | v0.1 step 2: memorable password website (`passphrase` + `pm-wasm` + React page) | ✅ Done, pushed (`073c567`, `78c2a1c`) |
-| v0.1 step 3: CI on macOS/Windows/Linux, GitHub Pages, README screenshot | 🟡 CI and Pages not yet committed; screenshot after that |
+| v0.1 step 3: CI on macOS/Windows/Linux, GitHub Pages, README screenshot | ✅ CI and Pages pushed (`edf77f5`); 🟡 screenshot not yet committed |
 | Desktop app (Tauri), then vault, encryption, profiles, sync, biometrics | ⏳ Planned (architecture doc, Section 11) |
 
 On 2026-10-19 v0.1 changed from a desktop app to a website, and then from random-character to memorable word-based passwords (architecture doc, Sections 1, 3.4 and 4.6).
@@ -20,9 +20,18 @@ On 2026-10-19 v0.1 changed from a desktop app to a website, and then from random
 
 ## Commit log
 
-### Add CI and GitHub Pages deployment
+### Add README screenshot and page title
 - **Commit:** not yet committed · **Pushed:** no
-- **Suggested commit message:** `Add CI and GitHub Pages deployment`
+- **Suggested commit message:** `Add README screenshot and page title`
+
+**What it accomplishes:** finishes v0.1.
+- **`docs/screenshot.png`** (new): the live site, shown at the top of the README.
+- **`web/index.html`:** the browser tab title and page description now say "Memorable password generator", matching the page heading. The old tab title, "Password generator", showed up when checking the live site.
+
+---
+
+### edf77f5 · Add CI and GitHub Pages deployment
+- **Commit:** `edf77f5` · 2026-10-19 · **Pushed:** yes, merged in pull request #3. The site was live after the merge.
 
 **What it accomplishes:** every push and pull request is tested automatically, and the website is published at https://alysondelledonne.github.io/password-manager/. A pull request missing files, like #1, now shows a red X before it's merged.
 

@@ -8,6 +8,8 @@ A password generator and, later, an encrypted password manager, built in Rust. v
 
 > **Status:** v0.1 is live. Nothing is stored; passwords are made in your browser.
 
+![The memorable password generator](docs/screenshot.png)
+
 ## What this demonstrates
 
 - **Rust in the browser:** the generator is a Rust library compiled to WebAssembly (`wasm-bindgen`). Randomness comes from the browser's secure generator, and no password ever reaches a server.
