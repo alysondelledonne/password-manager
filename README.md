@@ -1,14 +1,14 @@
-# password-manager
+# PassPhrase Pal
 
 [![CI](https://github.com/alysondelledonne/password-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/alysondelledonne/password-manager/actions/workflows/ci.yml)
 
 **Try it: https://alysondelledonne.github.io/password-manager/**
 
-A password generator and, later, an encrypted password manager, built in Rust. v0.1 is a website: the Rust generator is compiled to WebAssembly and runs in your browser, so passwords never leave the page. The password manager will be a desktop app for macOS, Windows and Linux (Tauri 2).
+Memorable, unique passwords, and later an encrypted password manager, built in Rust. v0.1 is a website: the Rust generator is compiled to WebAssembly and runs in your browser, so passwords never leave the page. The password manager will be a desktop app for macOS, Windows and Linux (Tauri 2).
 
 > **Status:** v0.1 is live. Nothing is stored; passwords are made in your browser.
 
-![The memorable password generator](docs/screenshot.png)
+![PassPhrase Pal: Pal the elephant holding a word tile, next to a generated password and its two star ratings](docs/screenshot.png)
 
 ## What this demonstrates
 
@@ -17,7 +17,7 @@ A password generator and, later, an encrypted password manager, built in Rust. v
 - **Security habits:** no `unsafe` code (forbidden by a workspace lint), secrets wiped from memory (`zeroize`) and hidden from debug output, a strict Content Security Policy, and honest ratings.
 - **CI/CD:** GitHub Actions run formatting, lints and tests on macOS, Windows and Linux, then build and publish the site to GitHub Pages.
 
-## v0.1: memorable password generator website
+## v0.1: the PassPhrase Pal website
 
 Makes passwords you can remember, like `Otter7Wagon!Maple2`: 2 or 3 words joined by digits and special characters.
 
@@ -25,6 +25,7 @@ Makes passwords you can remember, like `Otter7Wagon!Maple2`: 2 or 3 words joined
 - **Options:** length range (3 words if they fit, otherwise 2), exactly how many digits, uppercase and lowercase on or off, and whether special characters are required, picked from a set of bubbles. Spaces are never used.
 - **Regenerate** gives a new password with the same settings. **Copy** clears the clipboard after 30 seconds, but only if it still holds the password.
 - **Two star ratings**, because the goal is a different password for every site that you can remember without a password manager. **Easy to remember** counts how many separate things you'd have to recall. **Hard to guess** measures randomness. A one-line verdict weighs the two, and a guide below the generator explains both in plain language and says which accounts each level suits.
+- **Design:** the password is shown in pieces (words, digits, special characters), each underlined and colored by kind, which is how the "Easy to remember" rating counts them. Type is Atkinson Hyperlegible, made by the Braille Institute so that look-alike characters such as `I l 1` and `O 0` stay distinct. Pal, the elephant mascot, is drawn in inline SVG, so the strict Content Security Policy needs no image sources.
 
 How it fits together:
 
@@ -105,3 +106,5 @@ The property tests (`crates/pm-core/tests/properties.rs` and `passphrase_propert
 ## Credits
 
 Random words come from the [EFF Short Wordlist 1](https://www.eff.org/dice) by the Electronic Frontier Foundation, used under [CC BY 3.0 US](https://creativecommons.org/licenses/by/3.0/us/). See [`crates/pm-core/data/README.md`](crates/pm-core/data/README.md).
+
+Fonts: [Atkinson Hyperlegible Next and Mono](https://www.brailleinstitute.org/freefont/) by the Braille Institute, under the [SIL Open Font License 1.1](https://openfontlicense.org), bundled through Fontsource.

@@ -11,7 +11,8 @@ What each commit to this repo accomplishes, newest first. The plan behind these 
 | Design (architecture doc + diagram) | ✅ Done, pushed |
 | v0.1 step 1: generator core (`pm-core`) with tests | ✅ Done, pushed (`afe8f08`) |
 | v0.1 step 2: memorable password website (`passphrase` + `pm-wasm` + React page) | ✅ Done, pushed (`073c567`, `78c2a1c`) |
-| v0.1 step 3: CI on macOS/Windows/Linux, GitHub Pages, README screenshot | ✅ CI and Pages pushed (`edf77f5`); 🟡 screenshot not yet committed |
+| v0.1 step 3: CI on macOS/Windows/Linux, GitHub Pages, README screenshot | ✅ CI and Pages pushed (`edf77f5`); 🟡 screenshot waits for the redesign |
+| v0.1 step 4: PassPhrase Pal name and redesign | 🟡 Name pushed to `site-dev` (`35fc6e2`); redesign not yet committed |
 | Desktop app (Tauri), then vault, encryption, profiles, sync, biometrics | ⏳ Planned (architecture doc, Section 11) |
 
 On 2026-10-19 v0.1 changed from a desktop app to a website, and then from random-character to memorable word-based passwords (architecture doc, Sections 1, 3.4 and 4.6).
@@ -20,13 +21,30 @@ On 2026-10-19 v0.1 changed from a desktop app to a website, and then from random
 
 ## Commit log
 
-### Add README screenshot and page title
+### Redesign the site as PassPhrase Pal
 - **Commit:** not yet committed · **Pushed:** no
-- **Suggested commit message:** `Add README screenshot and page title`
+- **Suggested commit message:** `Redesign the site as PassPhrase Pal`
 
-**What it accomplishes:** finishes v0.1.
-- **`docs/screenshot.png`** (new): the live site, shown at the top of the README.
-- **`web/index.html`:** the browser tab title and page description now say "Memorable password generator", matching the page heading. The old tab title, "Password generator", showed up when checking the live site.
+**What it accomplishes:** the site gets a name, a mascot and a considered design, without changing how passwords are made.
+- **Name:** "PassPhrase Pal" is used in the page heading, top bar, footer, favicon and README, to match the title set in `35fc6e2`.
+- **Banner:** the name set like a generated password, with a bar under each piece; the line "Passwords that stick in your brain, not on a sticky note"; and Pal, an elephant ("an elephant never forgets") holding up a word tile, among faded word, digit and symbol tiles. Drawn in inline SVG (`web/src/Art.tsx`), so the Content Security Policy is unchanged.
+- **Password readout:** the password is shown in pieces (words, digits, special characters), each underlined in its color, with a key to the colors. Long passwords wrap between pieces, never inside one, and copying still gives the exact password with no spaces. The pieces slide in when a new password is made, unless the visitor has asked for reduced motion.
+- **Type:** Atkinson Hyperlegible Next for text and Atkinson Hyperlegible Mono for passwords, by the Braille Institute, which keep look-alike characters (`I l 1`, `O 0`) distinct. They replace Instrument Sans and JetBrains Mono. Run `npm install` in `web/` after pulling.
+- **Spacing and sizes:** fluid type and space scales in the style of Utopia (utopia.fyi), from 16px text on a phone to 18px on a wide screen, so spacing is consistent everywhere.
+- **Sections:** a top bar with links, the banner, the generator, "What the ratings mean" (with a small drawing for each rating), and a new "How it works" section (Rust in the browser, secure randomness, nothing kept). A "Skip to the generator" link for keyboard users.
+- **Meta tags:** `theme-color` and Open Graph title and description for link previews. Your page description is unchanged.
+- **Tests:** 2 new page tests (the heading, and splitting a password into pieces without changing it); 27 in total.
+
+**How it was verified:** all 27 page tests pass; type check and production build pass; the built page, with its Content Security Policy, loads with no console errors. Screenshots were checked at desktop and phone widths, using the cloud workspace's stand-in for the WebAssembly module.
+
+---
+
+### 35fc6e2 · some verbiage edits
+- **Commit:** `35fc6e2` · 2026-10-19 · **Pushed:** yes, to `site-dev`; not yet merged into `main`
+
+**What it accomplishes:** names the site.
+- **`web/index.html`:** browser tab title "PassPhrase Pal", and a new page description.
+- **`README.md`:** a screenshot line (`docs/screenshot.png`). The image itself is added after the redesign.
 
 ---
 

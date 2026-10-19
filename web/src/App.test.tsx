@@ -230,3 +230,17 @@ describe("memorable password page", () => {
     expect(screen.getByLabelText("Add a word you'll remember")).toBeDisabled();
   });
 });
+
+describe("page shell", () => {
+  it("is titled PassPhrase Pal", async () => {
+    render(<App />);
+    expect(await screen.findByRole("heading", { level: 1, name: "PassPhrase Pal" })).toBeInTheDocument();
+  });
+
+  it("splits a password into the pieces you'd remember, without changing it", async () => {
+    const { chunks } = await import("./App");
+    expect(chunks("Maple7Otter!Wagon42")).toEqual(["Maple", "7", "Otter", "!", "Wagon", "42"]);
+    expect(chunks("maple!!otter").join("")).toBe("maple!!otter");
+    expect(chunks("")).toEqual([]);
+  });
+});

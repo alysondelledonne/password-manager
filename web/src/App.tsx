@@ -1,9 +1,13 @@
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import { loadGenerator, type Field, type Generator, type WordOptions, type WordSource } from "./generator";
 import { GUESS_RATINGS, MEMORY_RATINGS, verdict } from "./ratings";
 import { CLEAR_AFTER_MS, copyWithAutoClear, type ClearResult } from "./clipboard";
+import { BrandMark, Elephant, GuessIcon, MemoryIcon } from "./Art";
 
 const MAX_LENGTH = 128;
+const REPO_URL = "https://github.com/alysondelledonne/password-manager";
+/** Faded tiles drifting behind Pal in the banner: the kinds of pieces a password is made of. */
+const DRIFT_TILES = ["maple", "7", "harbor", "!", "quilt", "42", "ember", "#"];
 const MAX_WORDS = 10;
 
 /** The special characters offered as bubbles. Defaults come from Rust. */
@@ -39,30 +43,70 @@ export function App() {
 
   return (
     <div className="page">
-      <header className="masthead">
-        <h1>Memorable password generator</h1>
-        <p>
-          Two or three words you can remember, joined by digits and special characters. It runs in
-          your browser as Rust compiled to WebAssembly: nothing you type or generate leaves this page.
-        </p>
+      <a className="skip-link" href="#generator">
+        Skip to the generator
+      </a>
+      <header className="topbar">
+        <a className="brand" href="#top" aria-label="PassPhrase Pal, top of page">
+          <BrandMark size={28} />
+          <span>PassPhrase Pal</span>
+        </a>
+        <nav aria-label="On this page">
+          <a href="#ratings">Ratings</a>
+          <a href="#how-it-works">How it works</a>
+          <a href={REPO_URL}>Source</a>
+        </nav>
       </header>
 
-      {load.kind === "loading" && <p className="status">Starting the generator…</p>}
-      {load.kind === "failed" && (
-        <p className="status status-error" role="alert">
-          The generator couldn't start. It needs WebAssembly, which current versions of Chrome,
-          Firefox, Safari and Edge all support. Details: {load.message}
-        </p>
-      )}
-      {load.kind === "ready" && <GeneratorPanel generator={load.generator} />}
+      <section className="hero" id="top" aria-labelledby="hero-title">
+        <div className="hero-copy">
+          <h1 id="hero-title" className="wordmark">
+            <span>Pass</span>
+            <span>Phrase</span> <span>Pal</span>
+          </h1>
+          <p className="tagline">Passwords that stick in your brain, not on a sticky note.</p>
+          <p className="lede">
+            Two or three real words with a pinch of digits and special characters, made in your
+            browser. Nothing you type or generate leaves your device.
+          </p>
+        </div>
+        <div className="hero-art">
+          <ul className="drift" aria-hidden="true">
+            {DRIFT_TILES.map((t) => (
+              <li key={t} className={`drift-${charClass(t[0])}`}>
+                {t}
+              </li>
+            ))}
+          </ul>
+          <Elephant word="otter" />
+        </div>
+      </section>
+
+      <div id="generator" className="generator" tabIndex={-1}>
+        {load.kind === "loading" && <p className="status">Starting the generator…</p>}
+        {load.kind === "failed" && (
+          <p className="status status-error" role="alert">
+            The generator couldn't start. It needs WebAssembly, which current versions of Chrome,
+            Firefox, Safari and Edge all support. Details: {load.message}
+          </p>
+        )}
+        {load.kind === "ready" && <GeneratorPanel generator={load.generator} />}
+      </div>
+
+      <HowItWorks />
 
       <footer className="colophon">
-        <a href="https://github.com/alysondelledonne/password-manager">Source on GitHub</a>
-        <span>
-          Random words from{" "}
-          <a href="https://www.eff.org/dice">EFF's short word list</a> (CC BY 3.0)
-        </span>
-        <span>v0.1</span>
+        <div className="colophon-row">
+          <span className="colophon-brand">
+            <BrandMark size={22} />
+            PassPhrase Pal v0.1
+          </span>
+          <a href={REPO_URL}>Source on GitHub</a>
+          <span>
+            Random words from <a href="https://www.eff.org/dice">EFF&apos;s short word list</a> (CC BY
+            3.0)
+          </span>
+        </div>
       </footer>
     </div>
   );
@@ -129,12 +173,20 @@ function GeneratorPanel({ generator }: { generator: Generator }) {
           {outcome.status === "ok" ? (
             <>
               <output className="password" aria-live="polite" data-testid="password">
-                {[...outcome.password].map((c, i) => (
-                  <span key={i} className={charClass(c)}>
-                    {c}
-                  </span>
-                ))}
+                {/* Keyed so a new password replays the entrance; the live region itself stays put. */}
+                <span key={`${outcome.password}-${regenerations}`} className="chunks">
+                  {chunks(outcome.password).map((chunk, i) => (
+                    <span key={i} className={`chunk c-${charClass(chunk)}`} style={{ "--i": i } as CSSProperties}>
+                      {chunk}
+                    </span>
+                  ))}
+                </span>
               </output>
+              <ul className="legend" aria-label="Colors in the password">
+                <li className="legend-letter">Words</li>
+                <li className="legend-digit">Digits</li>
+                <li className="legend-symbol">Special characters</li>
+              </ul>
               <RatingSummary
               memoryStars={outcome.memoryStars}
               guessStars={outcome.guessStars}
@@ -241,10 +293,16 @@ function GeneratorPanel({ generator }: { generator: Generator }) {
   );
 }
 
-function charClass(c: string): string {
-  if (/[0-9]/.test(c)) return "c-digit";
-  if (/\p{L}/u.test(c)) return "c-letter";
-  return "c-symbol";
+/** "letter", "digit" or "symbol", from the first character. */
+function charClass(text: string): "letter" | "digit" | "symbol" {
+  if (/^[0-9]/.test(text)) return "digit";
+  if (/^\p{L}/u.test(text)) return "letter";
+  return "symbol";
+}
+
+/** Splits a password into the pieces you'd remember: words, runs of digits, and special characters. */
+export function chunks(password: string): string[] {
+  return password.match(/\p{L}+|[0-9]+|[^\p{L}0-9]/gu) ?? [];
 }
 
 function MyWords({ words, onChange }: { words: string[]; onChange: (words: string[]) => void }) {
@@ -372,7 +430,10 @@ function RatingGuide({ current }: { current: { memoryStars: number; guessStars: 
 
       <div className="guide-columns">
         <div>
-          <h3 className="guide-heading">Easy to remember</h3>
+          <h3 className="guide-heading">
+            <MemoryIcon />
+            Easy to remember
+          </h3>
           <p className="guide-note">
             How many separate things you have to recall: words, digits and special characters.
           </p>
@@ -390,7 +451,10 @@ function RatingGuide({ current }: { current: { memoryStars: number; guessStars: 
           </ul>
         </div>
         <div>
-          <h3 className="guide-heading">Hard to guess</h3>
+          <h3 className="guide-heading">
+            <GuessIcon />
+            Hard to guess
+          </h3>
           <p className="guide-note">
             Which accounts it&apos;s fine to memorize for. The risk isn&apos;t someone typing guesses
             at a login page, but a site being breached and attackers guessing offline, very fast.
@@ -444,6 +508,42 @@ function RatingGuide({ current }: { current: { memoryStars: number; guessStars: 
               strength.
             </li>
           </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HowItWorks() {
+  return (
+    <section className="how" id="how-it-works" aria-labelledby="how-title">
+      <h2 id="how-title">How it works</h2>
+      <p className="section-intro">
+        PassPhrase Pal has no server to send anything to. The page is a static file, and the
+        password is made on your device.
+      </p>
+      <div className="how-grid">
+        <div>
+          <h3>Rust, in your browser</h3>
+          <p>
+            The generator is written in Rust and compiled to WebAssembly, so the same tested code
+            will run in the desktop app planned next.
+          </p>
+        </div>
+        <div>
+          <h3>Secure randomness</h3>
+          <p>
+            Words, digits and special characters are picked with your browser&apos;s
+            cryptographic random number generator, the one used for encryption keys.
+          </p>
+        </div>
+        <div>
+          <h3>Nothing kept</h3>
+          <p>
+            No accounts, cookies or tracking. Reload the page and your words are gone. A copied
+            password is cleared from the clipboard after {CLEAR_AFTER_MS / 1000} seconds, unless
+            you've copied something else since.
+          </p>
         </div>
       </div>
     </section>
