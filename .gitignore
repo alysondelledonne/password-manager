@@ -1,0 +1,35 @@
+# --- Secrets: never commit ---
+*.pvault
+*.pvault.tmp
+_merged/
+profiles.json
+.env
+.env.*
+*.key
+*.pem
+
+# --- Rust ---
+# (Cargo.lock is committed on purpose: this is an app, not a library)
+target/
+**/*.rs.bk
+
+# --- Tauri ---
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# --- Frontend (Node) ---
+node_modules/
+ui/dist/
+*.tsbuildinfo
+npm-debug.log*
+
+# --- Tests / fuzzing ---
+fuzz/artifacts/
+fuzz/target/
+coverage/
+*.profraw
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/

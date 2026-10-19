@@ -1,0 +1,48 @@
+flowchart LR
+    subgraph DEVICE["User's computer (macOS / Windows / Linux)"]
+        subgraph APP["Desktop app (Rust + Tauri 2)"]
+            subgraph WEB["Webview UI (TypeScript, OS webview)"]
+                UI["Screens<br/>Profile picker · Unlock<br/>Generator panel · Vault list · Entry editor<br/>never holds the vault key"]
+            end
+            IPC["Tauri IPC boundary<br/>isolation pattern · allow-listed commands only<br/>strict CSP · no remote content"]
+            subgraph CORE["Rust core (pm-core crate, no UI code)"]
+                GEN["Password Generator<br/>rules engine · OS CSPRNG<br/>phrase modes · entropy estimate"]
+                VAULT["Vault Service<br/>entries CRUD · auto-lock<br/>clipboard copy + auto-clear in Rust"]
+                CRYPTO["Crypto Module<br/>Argon2id KDF<br/>XChaCha20-Poly1305<br/>key wrapping · zeroize on drop"]
+                SYNC["Sync & Merge Engine<br/>folder watcher · atomic writes<br/>per-entry newest-wins merge<br/>conflicted-copy cleanup"]
+                PROF["Profile Manager<br/>profile registry<br/>per-profile settings"]
+            end
+            subgraph PLAT["Platform adapters (pm-platform crate)"]
+                MAC["macOS<br/>Touch ID + Keychain"]
+                WIN["Windows<br/>Windows Hello + DPAPI"]
+                LNX["Linux<br/>master password only"]
+            end
+        end
+        LOCAL[("Local app data<br/>profiles.json (no secrets)<br/>encrypted vault cache")]
+        OSKEY[("OS secure store<br/>biometric-wrapped vault key<br/>(per profile, per device)")]
+        SYNCDIR[("Cloud sync folder<br/>&lt;profile&gt;.pvault (encrypted)")]
+    end
+
+    CLOUD{{"Cloud provider<br/>iCloud Drive · Dropbox · Google Drive<br/>sees only encrypted bytes"}}
+    OTHER["User's other devices<br/>(same app, same vault file)"]
+
+    UI <-->|"commands + display data"| IPC
+    IPC --> GEN
+    IPC --> VAULT
+    IPC --> PROF
+    VAULT --> CRYPTO
+    VAULT --> SYNC
+    VAULT --> PLAT
+    PROF --> LOCAL
+    SYNC --> LOCAL
+    SYNC --> SYNCDIR
+    PLAT --> OSKEY
+    SYNCDIR <-->|"provider's own desktop client syncs the file"| CLOUD
+    CLOUD <--> OTHER
+
+    classDef secret fill:#fde8e8,stroke:#b42318,color:#1a1a1a
+    classDef enc fill:#e6f4ea,stroke:#1e7a3c,color:#1a1a1a
+    classDef boundary fill:#fff4e5,stroke:#b54708,color:#1a1a1a
+    class OSKEY secret
+    class SYNCDIR,CLOUD,LOCAL enc
+    class IPC boundary
