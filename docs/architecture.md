@@ -212,6 +212,7 @@ flowchart LR
 - **`crates/pm-wasm`:** a thin wrapper around `pm-core`'s word-based generator (Section 4.6). It passes the page's options and words straight to the Rust rules, and returns either a password with its word count and strength, or an error with a plain-English message and the form field to highlight. It never throws.
 - **Randomness:** `pm-core` asks for the OS random number generator; in the browser, getrandom's `wasm_js` backend supplies `crypto.getRandomValues`.
 - **`web/`:** Vite + React + TypeScript. Fonts are bundled, not fetched from a font service.
+- **Name and design:** the site is called PassPhrase Pal, with Pal the elephant as its mascot ("an elephant never forgets"). The password is drawn in pieces (words, digits, special characters), matching how the "Easy to remember" rating counts them (Section 4.6). Type is Atkinson Hyperlegible Next and Mono, chosen because look-alike characters stay distinct. All drawings are inline SVG.
 - **Content Security Policy** (built pages only): everything from the site itself; no inline scripts or styles, no `eval`, no external requests. `'wasm-unsafe-eval'` is the one addition, needed to run WebAssembly. Asset inlining is turned off so fonts are never `data:` URLs.
 - **Hosting:** any static host. GitHub Pages is planned in step 4 (Section 11).
 
